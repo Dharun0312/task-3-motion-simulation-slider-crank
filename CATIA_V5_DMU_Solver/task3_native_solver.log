@@ -1,0 +1,50 @@
+CATIA V5 R21 DMU Kinematics slider-crank build
+Ground part created | err=0 
+Crank part created | err=0 
+ConnectingRod part created | err=0 
+Slider part created | err=0 
+instances=Ground.1,Crank.1,ConnectingRod.1,Slider.1 | err=0 
+joint 1 revolute; count=1 | err=0 
+joint 2 revolute; count=2 | err=0 
+joint 3 revolute; count=3 | err=0 
+joint 4 prismatic; count=4 | err=0 
+commands=1 dof=1 | err=0 
+solve angle=0 | err=0 
+solve angle=10 | err=0 
+solve angle=20 | err=0 
+solve angle=30 | err=0 
+solve angle=40 | err=0 
+solve angle=50 | err=0 
+solve angle=60 | err=0 
+solve angle=70 | err=0 
+solve angle=80 | err=0 
+solve angle=90 | err=0 
+solve angle=100 | err=0 
+solve angle=110 | err=0 
+solve angle=120 | err=0 
+solve angle=130 | err=0 
+solve angle=140 | err=0 
+solve angle=150 | err=0 
+solve angle=160 | err=0 
+solve angle=170 | err=0 
+solve angle=180 | err=0 
+solve angle=190 | err=0 
+solve angle=200 | err=0 
+solve angle=210 | err=0 
+solve angle=220 | err=0 
+solve angle=230 | err=0 
+solve angle=240 | err=0 
+solve angle=250 | err=0 
+solve angle=260 | err=0 
+solve angle=270 | err=0 
+solve angle=280 | err=0 
+solve angle=290 | err=0 
+solve angle=300 | err=0 
+solve angle=310 | err=0 
+solve angle=320 | err=0 
+solve angle=330 | err=0 
+solve angle=340 | err=0 
+solve angle=350 | err=0 
+solve angle=360 | err=0 
+animate to 90 degrees; steps reached=0 | err=0 
+CATIA native solver sweep completed | err=0 

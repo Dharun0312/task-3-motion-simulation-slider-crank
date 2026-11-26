@@ -1,0 +1,150 @@
+Language="VBSCRIPT"
+Dim fso,lg,base,partDocs(3),geomPts(12)
+Sub WriteLog(s)
+ lg.WriteLine s & " | err=" & Err.Number & " " & Err.Description
+ Err.Clear
+End Sub
+Sub AddPoint(i,x,y,z,nm,part,hb)
+ Dim p
+ Set p=part.HybridShapeFactory.AddNewPointCoord(x,y,z)
+ p.Name=nm
+ hb.AppendHybridShape p
+ Set geomPts(i)=p
+End Sub
+Sub MakeLink(idx,nm,filePath,partNumber,x0,x1,y0,y1,thick,kind)
+ On Error Resume Next
+ Dim pd,part,body,sk,f,a,b,c,d,pad,hb,hsf,feat
+ Set pd=CATIA.Documents.Add("Part")
+ Set part=pd.Part
+ Set body=part.Bodies.Item("PartBody")
+ Set sk=body.Sketches.Add(part.OriginElements.PlaneXY)
+ Set f=sk.OpenEdition()
+ Set a=f.CreateLine(x0,y0,x1,y0)
+ Set b=f.CreateLine(x1,y0,x1,y1)
+ Set c=f.CreateLine(x1,y1,x0,y1)
+ Set d=f.CreateLine(x0,y1,x0,y0)
+ sk.CloseEdition
+ Set pad=part.ShapeFactory.AddNewPad(sk,thick)
+ pad.Name=nm & "_Solid"
+ Set hb=part.HybridBodies.Add()
+ hb.Name="KinematicReferences"
+ Set hsf=part.HybridShapeFactory
+ AddPoint 0,0,0,0,"O",part,hb
+ AddPoint 1,0,0,10,"Z",part,hb
+ AddPoint 2,10,0,0,"X",part,hb
+ AddPoint 3,0,10,0,"Y",part,hb
+ If kind="ground" Then
+  Set feat=hsf.AddNewLinePtPt(geomPts(0),geomPts(1)): hb.AppendHybridShape feat: feat.Name="Line.1"
+  Set feat=hsf.AddNewPlane3Points(geomPts(0),geomPts(2),geomPts(3)): hb.AppendHybridShape feat: feat.Name="Plane.1"
+  AddPoint 4,-10,0,0,"GuideStart",part,hb
+  AddPoint 5,10,0,0,"GuideEnd",part,hb
+  Set feat=hsf.AddNewLinePtPt(geomPts(4),geomPts(5)): hb.AppendHybridShape feat: feat.Name="Line.2"
+  Set feat=hsf.AddNewPlane3Points(geomPts(0),geomPts(2),geomPts(3)): hb.AppendHybridShape feat: feat.Name="Plane.2"
+ ElseIf kind="crank" Then
+  Set feat=hsf.AddNewLinePtPt(geomPts(0),geomPts(1)): hb.AppendHybridShape feat: feat.Name="Line.1"
+  Set feat=hsf.AddNewPlane3Points(geomPts(0),geomPts(2),geomPts(3)): hb.AppendHybridShape feat: feat.Name="Plane.1"
+  AddPoint 4,40,0,0,"PinO",part,hb
+  AddPoint 5,40,0,10,"PinZ",part,hb
+  AddPoint 6,50,0,0,"PinX",part,hb
+  AddPoint 7,40,10,0,"PinY",part,hb
+  Set feat=hsf.AddNewLinePtPt(geomPts(4),geomPts(5)): hb.AppendHybridShape feat: feat.Name="Line.2"
+  Set feat=hsf.AddNewPlane3Points(geomPts(4),geomPts(6),geomPts(7)): hb.AppendHybridShape feat: feat.Name="Plane.2"
+ ElseIf kind="rod" Then
+  Set feat=hsf.AddNewLinePtPt(geomPts(0),geomPts(1)): hb.AppendHybridShape feat: feat.Name="Line.1"
+  Set feat=hsf.AddNewPlane3Points(geomPts(0),geomPts(2),geomPts(3)): hb.AppendHybridShape feat: feat.Name="Plane.1"
+  AddPoint 4,160,0,0,"PinO",part,hb
+  AddPoint 5,160,0,10,"PinZ",part,hb
+  AddPoint 6,170,0,0,"PinX",part,hb
+  AddPoint 7,160,10,0,"PinY",part,hb
+  Set feat=hsf.AddNewLinePtPt(geomPts(4),geomPts(5)): hb.AppendHybridShape feat: feat.Name="Line.2"
+  Set feat=hsf.AddNewPlane3Points(geomPts(4),geomPts(6),geomPts(7)): hb.AppendHybridShape feat: feat.Name="Plane.2"
+ ElseIf kind="slider" Then
+  Set feat=hsf.AddNewLinePtPt(geomPts(0),geomPts(1)): hb.AppendHybridShape feat: feat.Name="Line.1"
+  Set feat=hsf.AddNewPlane3Points(geomPts(0),geomPts(2),geomPts(3)): hb.AppendHybridShape feat: feat.Name="Plane.1"
+  AddPoint 4,-10,0,0,"GuideStart",part,hb
+  AddPoint 5,10,0,0,"GuideEnd",part,hb
+  Set feat=hsf.AddNewLinePtPt(geomPts(4),geomPts(5)): hb.AppendHybridShape feat: feat.Name="Line.2"
+  Set feat=hsf.AddNewPlane3Points(geomPts(0),geomPts(2),geomPts(3)): hb.AppendHybridShape feat: feat.Name="Plane.2"
+ End If
+ part.Update
+ pd.Product.PartNumber=partNumber
+ pd.SaveAs filePath
+ Set partDocs(idx)=pd
+ WriteLog nm & " part created"
+End Sub
+Sub CATMain()
+ On Error Resume Next
+ Dim prodDoc,root,prods,ground,crank,rod,slider,pos(11),refs(3),mechSet,mech,j1,j2,j3,j4,cmd,cmdVals(0),motion(11),csv,deg,i,k,stepsReached
+ Set fso=CreateObject("Scripting.FileSystemObject")
+ base="C:\Users\DHARUN\Documents\Codex\2026-11-26\task-2-structural-simulation-fea-perform\outputs\task3_slider_crank"
+ Set lg=fso.CreateTextFile(base & "\task3_native_solver.log",True)
+ lg.WriteLine "CATIA V5 R21 DMU Kinematics slider-crank build"
+ MakeLink 0,"Ground",base & "\Ground_CATIA.CATPart","Ground",-130,130,-15,15,8,"ground"
+ MakeLink 1,"Crank",base & "\Crank_CATIA.CATPart","Crank",-8,48,-6,6,6,"crank"
+ MakeLink 2,"ConnectingRod",base & "\ConnectingRod_CATIA.CATPart","ConnectingRod",-5,165,-5,5,6,"rod"
+ MakeLink 3,"Slider",base & "\Slider_CATIA.CATPart","Slider",-12,12,-12,12,8,"slider"
+ Set prodDoc=CATIA.Documents.Add("Product")
+ Set root=prodDoc.Product
+ Set prods=root.Products
+ Set ground=prods.AddExternalComponent(partDocs(0))
+ Set crank=prods.AddExternalComponent(partDocs(1))
+ Set rod=prods.AddExternalComponent(partDocs(2))
+ Set slider=prods.AddExternalComponent(partDocs(3))
+ WriteLog "instances=" & ground.Name & "," & crank.Name & "," & rod.Name & "," & slider.Name
+ For i=0 To 11: pos(i)=0: Next
+ pos(0)=1: pos(4)=1: pos(8)=1
+ ground.Position.SetComponents pos
+ crank.Position.SetComponents pos
+ pos(9)=40: rod.Position.SetComponents pos
+ pos(9)=200: slider.Position.SetComponents pos
+ root.ApplyWorkMode DESIGN_MODE
+ Set mechSet=root.GetTechnologicalObject("Mechanisms")
+ Set mech=mechSet.Add()
+ mech.Name="SliderCrank_Mechanism"
+ mech.FixedPart=ground
+ Set refs(0)=root.CreateReferenceFromName(root.Name & "/" & ground.Name & "/!Line.1")
+ Set refs(1)=root.CreateReferenceFromName(root.Name & "/" & crank.Name & "/!Line.1")
+ Set refs(2)=root.CreateReferenceFromName(root.Name & "/" & ground.Name & "/!Plane.1")
+ Set refs(3)=root.CreateReferenceFromName(root.Name & "/" & crank.Name & "/!Plane.1")
+ Set j1=mech.AddJoint("CATKinRevoluteJoint",refs): WriteLog "joint 1 revolute; count=" & mech.NbJoints
+ Set refs(0)=root.CreateReferenceFromName(root.Name & "/" & crank.Name & "/!Line.2")
+ Set refs(1)=root.CreateReferenceFromName(root.Name & "/" & rod.Name & "/!Line.1")
+ Set refs(2)=root.CreateReferenceFromName(root.Name & "/" & crank.Name & "/!Plane.2")
+ Set refs(3)=root.CreateReferenceFromName(root.Name & "/" & rod.Name & "/!Plane.1")
+ Set j2=mech.AddJoint("CATKinRevoluteJoint",refs): WriteLog "joint 2 revolute; count=" & mech.NbJoints
+ Set refs(0)=root.CreateReferenceFromName(root.Name & "/" & rod.Name & "/!Line.2")
+ Set refs(1)=root.CreateReferenceFromName(root.Name & "/" & slider.Name & "/!Line.1")
+ Set refs(2)=root.CreateReferenceFromName(root.Name & "/" & rod.Name & "/!Plane.2")
+ Set refs(3)=root.CreateReferenceFromName(root.Name & "/" & slider.Name & "/!Plane.1")
+ Set j3=mech.AddJoint("CATKinRevoluteJoint",refs): WriteLog "joint 3 revolute; count=" & mech.NbJoints
+ Set refs(0)=root.CreateReferenceFromName(root.Name & "/" & ground.Name & "/!Line.2")
+ Set refs(1)=root.CreateReferenceFromName(root.Name & "/" & slider.Name & "/!Line.2")
+ Set refs(2)=root.CreateReferenceFromName(root.Name & "/" & ground.Name & "/!Plane.2")
+ Set refs(3)=root.CreateReferenceFromName(root.Name & "/" & slider.Name & "/!Plane.2")
+ Set j4=mech.AddJoint("CATKinPrismaticJoint",refs): WriteLog "joint 4 prismatic; count=" & mech.NbJoints
+ Set cmd=mech.AddCommand("CATKinAngleCmd",j1): WriteLog "commands=" & mech.NbCommands & " dof=" & mech.NbDof
+ prodDoc.SaveAs base & "\SliderCrank_CATIA_DMU_Solver.CATProduct"
+ Set csv=fso.CreateTextFile(base & "\catia_dmu_slider_crank_motion.csv",True)
+ csv.WriteLine "angle_deg,matrix_0,matrix_1,matrix_2,matrix_3,matrix_4,matrix_5,matrix_6,matrix_7,matrix_8,matrix_9,matrix_10,matrix_11"
+ For deg=0 To 360 Step 10
+  cmdVals(0)=deg
+  mech.PutCommandValues cmdVals
+  WriteLog "solve angle=" & deg
+  mech.GetProductMotion slider,motion
+  csv.Write CStr(deg)
+  For k=0 To 11: csv.Write "," & CStr(motion(k)): Next
+  csv.WriteLine ""
+ Next
+  cmdVals(0)=90
+ mech.PutCommandValuesWithMultiSteps cmdVals,18,stepsReached
+ WriteLog "animate to 90 degrees; steps reached=" & stepsReached
+ csv.Close
+ prodDoc.Save
+ WriteLog "CATIA native solver sweep completed"
+ If CATIA.Windows.Count>0 Then CATIA.ActiveWindow.ActiveViewer.CaptureToFile catCaptureFormatJPEG,base & "\catia_dmu_slider_crank.jpg"
+ lg.Close
+ CATIA.Quit
+End Sub
+
+
+
