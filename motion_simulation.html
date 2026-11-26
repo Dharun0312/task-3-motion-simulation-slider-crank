@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task 3 | Slider-Crank Motion Simulation</title>
+<style>
+:root{font-family:Inter,"Segoe UI",Arial,sans-serif;color:#162438;background:#eef3f8}
+*{box-sizing:border-box}body{margin:0;padding:28px}.shell{max-width:1180px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:clamp(1.6rem,3vw,2.25rem);margin:0 0 5px;color:#17365d}
+p{margin:0;color:#54657a}.badge{padding:8px 12px;border-radius:20px;background:#dceafe;color:#174b83;font-weight:700;font-size:.9rem}
+.panel{background:#fff;border:1px solid #dce4ed;border-radius:14px;padding:18px;box-shadow:0 3px 12px #20364d0c;margin-bottom:16px}
+h2{font-size:1.08rem;margin:0 0 12px;color:#17365d}.mechanism-wrap{background:linear-gradient(180deg,#fbfdff,#f3f7fb);border-radius:10px;overflow:hidden}
+canvas{display:block;width:100%;height:300px}.controls{display:grid;grid-template-columns:1fr 1fr auto;gap:18px;align-items:end;margin-top:16px}
+label{display:block;font-size:.9rem;font-weight:600;color:#334155;margin-bottom:6px}
+input[type=range]{width:100%;accent-color:#1c67a8}
+button{border:0;border-radius:8px;background:#174f83;color:#fff;padding:10px 18px;font-weight:700;font-size:.95rem;cursor:pointer}
+button:hover{background:#103d67}.reading-grid{display:grid;grid-template-columns:repeat(6,minmax(100px,1fr));gap:10px;margin-top:16px}
+.reading{background:#f3f7fb;border-radius:9px;padding:11px}
+.reading span{display:block;color:#64748b;font-size:.78rem;margin-bottom:5px}
+.reading strong{font-size:1rem;font-variant-numeric:tabular-nums;color:#152f4c}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:12px}.chart{border:1px solid #e3e9f0;border-radius:9px;padding:8px 8px 0;background:#fff}
+.chart h3{font-size:.9rem;color:#334155;margin:4px 8px}.chart canvas{height:210px}
+.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.meta div{background:#f3f7fb;border-radius:9px;padding:12px}.meta small{display:block;color:#64748b;margin-bottom:5px}
+.note{line-height:1.5;color:#4b5d73;font-size:.92rem}
+@media(max-width:800px){body{padding:14px}.reading-grid{grid-template-columns:repeat(3,1fr)}.charts{grid-template-columns:1fr}.meta{grid-template-columns:repeat(2,1fr)}.controls{grid-template-columns:1fr 1fr}.controls button{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+<div><h1>Slider-Crank Motion Simulation</h1><p>Task 3 • Planar mechanism • Full-cycle kinematic and slider-inertia results</p></div>
+<div class="badge">40 mm crank · 160 mm rod · 0.50 kg slider</div>
+</header>
+<section class="panel">
+<h2>Animated mechanism</h2>
+<div class="mechanism-wrap"><canvas id="mechanism" aria-label="Animated slider-crank mechanism"></canvas></div>
+<div class="controls">
+<div><label for="angle">Crank angle: <span id="angleLabel">45°</span></label><input id="angle" type="range" min="0" max="360" step="0.1" value="45"></div>
+<div><label for="speed">Crank speed: <span id="speedLabel">600 rpm</span></label><input id="speed" type="range" min="60" max="1200" step="10" value="600"></div>
+<button id="play" type="button" aria-pressed="true">Pause</button>
+</div>
+<div class="reading-grid">
+<div class="reading"><span>Time</span><strong id="time">0.013 s</strong></div>
+<div class="reading"><span>Slider position</span><strong id="pos">—</strong></div>
+<div class="reading"><span>Slider velocity</span><strong id="vel">—</strong></div>
+<div class="reading"><span>Slider acceleration</span><strong id="acc">—</strong></div>
+<div class="reading"><span>Drive force, m·a</span><strong id="force">—</strong></div>
+<div class="reading"><span>Input torque</span><strong id="torque">—</strong></div>
+</div>
+</section>
+<section class="panel">
+<h2>Motion and force through one revolution</h2>
+<div class="charts">
+<div class="chart"><h3>Slider displacement · mm</h3><canvas id="cpos" aria-label="Slider displacement versus crank angle"></canvas></div>
+<div class="chart"><h3>Slider velocity · m/s</h3><canvas id="cvel" aria-label="Slider velocity versus crank angle"></canvas></div>
+<div class="chart"><h3>Slider acceleration · m/s²</h3><canvas id="cacc" aria-label="Slider acceleration versus crank angle"></canvas></div>
+<div class="chart"><h3>Input torque · N·m</h3><canvas id="ctorque" aria-label="Crank input torque versus crank angle"></canvas></div>
+</div>
+</section>
+<section class="panel">
+<h2>Model settings</h2>
+<div class="meta">
+<div><small>Crank radius</small><strong>0.040 m</strong></div><div><small>Connecting rod</small><strong>0.160 m</strong></div>
+<div><small>Slider mass</small><strong>0.50 kg</strong></div><div><small>Nominal crank speed</small><strong>600 rpm</strong></div>
+</div>
+<p class="note" style="margin-top:14px">The model uses exact planar slider-crank kinematics. The force and torque readouts include slider inertia only; the crank and connecting rod are treated as massless. No external process load, friction, joint clearance, flexibility, or flywheel inertia is included. This analytical simulation is not presented as CATIA DMU Kinematics solver output.</p>
+</section>
+</div>
+<script>
+(function(){
+  const r=0.04,L=0.16,m=0.50,deg=Math.PI/180;
+  const canvases={mechanism:document.getElementById("mechanism"),pos:document.getElementById("cpos"),vel:document.getElementById("cvel"),acc:document.getElementById("cacc"),torque:document.getElementById("ctorque")};
+  const angle=document.getElementById("angle"),speed=document.getElementById("speed"),play=document.getElementById("play");
+  let running=true,last=0;
+  function calc(a,rpm){
+    const t=a*deg,s=Math.sin(t),c=Math.cos(t),d=Math.sqrt(L*L-r*r*s*s),w=rpm*2*Math.PI/60;
+    const x=r*c+d,dx=-r*s-r*r*s*c/d;
+    const ddx=-r*c-r*r*(c*c-s*s)/d-Math.pow(r,4)*s*s*c*c/Math.pow(d,3);
+    const v=w*dx,acc=w*w*ddx,F=m*acc,T=F*dx;
+    return {x:x*1000,v:v,a:acc,F:F,T:T};
+  }
+  function resize(c){
+    const rect=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+    c.width=Math.max(1,Math.round(rect.width*dpr));c.height=Math.max(1,Math.round(rect.height*dpr));
+    const ctx=c.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w:rect.width,h:rect.height};
+  }
+  function drawMechanism(a){
+    const z=resize(canvases.mechanism),ctx=z.ctx,W=z.w,H=z.h;
+    ctx.clearRect(0,0,W,H);
+    const ox=Math.max(64,W*.10),oy=H*.53,scale=(W-ox-55)/(r+L);
+    const t=a*deg,slider=r*Math.cos(t)+Math.sqrt(L*L-r*r*Math.sin(t)*Math.sin(t));
+    const crankX=ox+r*Math.cos(t)*scale,crankY=oy-r*Math.sin(t)*scale,sliderX=ox+slider*scale;
+    ctx.strokeStyle="#64748b";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(ox-38,oy+22);ctx.lineTo(W-26,oy+22);ctx.stroke();
+    ctx.strokeStyle="#cbd5e1";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox-38,oy+31);ctx.lineTo(W-26,oy+31);ctx.stroke();
+    ctx.setLineDash([7,6]);ctx.strokeStyle="#94a3b8";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(ox,oy,r*scale,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle="#ea580c";ctx.lineWidth=12;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(crankX,crankY);ctx.stroke();
+    ctx.strokeStyle="#2563eb";ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(crankX,crankY);ctx.lineTo(sliderX,oy);ctx.stroke();
+    ctx.fillStyle="#0f172a";ctx.beginPath();ctx.arc(ox,oy,7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#ea580c";ctx.beginPath();ctx.arc(crankX,crankY,7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#16a34a";ctx.beginPath();ctx.roundRect(sliderX-34,oy-24,68,48,8);ctx.fill();
+    ctx.fillStyle="#fff";ctx.font="600 13px Segoe UI, Arial";ctx.textAlign="center";ctx.fillText("SLIDER",sliderX,oy+5);
+    ctx.fillStyle="#334155";ctx.textAlign="left";ctx.font="13px Segoe UI, Arial";ctx.fillText("O",ox-14,oy+48);
+    ctx.fillStyle="#9a3412";ctx.fillText("crank  r = 40 mm",ox+8,oy-r*scale-12);
+    ctx.fillStyle="#1d4ed8";ctx.fillText("connecting rod  L = 160 mm",(crankX+sliderX)/2-48,(crankY+oy)/2-15);
+    ctx.fillStyle="#475569";ctx.fillText("line of stroke",W-115,oy+52);
+    ctx.fillStyle="#64748b";ctx.font="12px Segoe UI, Arial";ctx.fillText("Angle: "+a.toFixed(1)+"°",18,24);
+  }
+  function drawGraph(id,key,currentAngle){
+    const z=resize(canvases[id]),ctx=z.ctx,W=z.w,H=z.h,pad={l:45,r:12,t:14,b:28},pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+    const dat=[];for(let a=0;a<=360;a+=2)dat.push({a:a,v:calc(a,Number(speed.value))[key]});
+    let lo=Math.min.apply(null,dat.map(d=>d.v)),hi=Math.max.apply(null,dat.map(d=>d.v));
+    if(lo===hi){lo-=1;hi+=1;}const ex=(hi-lo)*.10;lo-=ex;hi+=ex;
+    const x=a=>pad.l+a/360*pw,y=v=>pad.t+(hi-v)/(hi-lo)*ph;
+    ctx.clearRect(0,0,W,H);ctx.strokeStyle="#e2e8f0";ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const yy=pad.t+i*ph/4;ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(W-pad.r,yy);ctx.stroke();}
+    for(let i=0;i<=6;i++){const xx=pad.l+i*pw/6;ctx.beginPath();ctx.moveTo(xx,pad.t);ctx.lineTo(xx,H-pad.b);ctx.stroke();}
+    ctx.strokeStyle="#1565c0";ctx.lineWidth=2.2;ctx.beginPath();dat.forEach((d,i)=>{if(i===0)ctx.moveTo(x(d.a),y(d.v));else ctx.lineTo(x(d.a),y(d.v));});ctx.stroke();
+    const v=calc(currentAngle,Number(speed.value))[key];ctx.fillStyle="#ea580c";ctx.beginPath();ctx.arc(x(currentAngle),y(v),4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#64748b";ctx.font="11px Segoe UI, Arial";ctx.textAlign="center";
+    [0,60,120,180,240,300,360].forEach(a=>ctx.fillText(String(a),x(a),H-8));
+    ctx.fillText("Crank angle (°)",pad.l+pw/2,H-1);
+  }
+  function render(){
+    const a=Number(angle.value),rpm=Number(speed.value),q=calc(a,rpm);
+    document.getElementById("angleLabel").textContent=a.toFixed(1)+"°";
+    document.getElementById("speedLabel").textContent=rpm+" rpm";
+    document.getElementById("time").textContent=(a/360*60/rpm).toFixed(4)+" s";
+    document.getElementById("pos").textContent=q.x.toFixed(2)+" mm";
+    document.getElementById("vel").textContent=q.v.toFixed(3)+" m/s";
+    document.getElementById("acc").textContent=q.a.toFixed(2)+" m/s²";
+    document.getElementById("force").textContent=q.F.toFixed(2)+" N";
+    document.getElementById("torque").textContent=q.T.toFixed(3)+" N·m";
+    drawMechanism(a);drawGraph("pos","x",a);drawGraph("vel","v",a);drawGraph("acc","a",a);drawGraph("torque","T",a);
+  }
+  angle.addEventListener("input",render);speed.addEventListener("input",render);
+  play.addEventListener("click",function(){running=!running;play.textContent=running?"Pause":"Play";play.setAttribute("aria-pressed",String(running));});
+  window.addEventListener("resize",render);
+  function frame(now){if(running&&last){const dt=Math.min((now-last)/1000,.05);const da=Number(speed.value)*6*dt;angle.value=String((Number(angle.value)+da)%360);render();}last=now;requestAnimationFrame(frame);}
+  render();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
